@@ -5,6 +5,15 @@ fn greet(name: &str) -> String {
 }
 
 #[tauri::command]
+fn show_main_window(app: tauri::AppHandle) {
+    use tauri::Manager;
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.show();
+        let _ = window.set_focus();
+    }
+}
+
+#[tauri::command]
 fn show_about_window(app: tauri::AppHandle) {
     use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
     
@@ -32,18 +41,19 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_shell::init())
-        .invoke_handler(tauri::generate_handler![greet, show_about_window])
+        .invoke_handler(tauri::generate_handler![greet, show_main_window, show_about_window])
         .setup(|app| {
             use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
             use tauri::tray::TrayIconBuilder;
 
             // Create menu items
+            let show_main = MenuItem::with_id(app, "show_main", "Open Main Window", true, None::<&str>)?;
             let about = MenuItem::with_id(app, "about", "About", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
             let separator = PredefinedMenuItem::separator(app)?;
 
             // Create the menu
-            let menu = Menu::with_items(app, &[&about, &separator, &quit])?;
+            let menu = Menu::with_items(app, &[&show_main, &separator, &about, &separator, &quit])?;
 
             // Load custom tray icon
             let icon_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("icons/traytest.png");
@@ -54,9 +64,14 @@ pub fn run() {
             let _tray = TrayIconBuilder::new()
                 .icon(tray_icon)
                 .menu(&menu)
-                .show_menu_on_left_click(true)
                 .on_menu_event(move |app, event| {
                     match event.id.as_ref() {
+                        "show_main" => {
+                            let app_handle = app.clone();
+                            let _ = app.run_on_main_thread(move || {
+                                show_main_window(app_handle);
+                            });
+                        }
                         "about" => {
                             let app_handle = app.clone();
                             let _ = app.run_on_main_thread(move || {
@@ -67,6 +82,17 @@ pub fn run() {
                             app.exit(0);
                         }
                         _ => {}
+                    }
+                })
+                .on_tray_icon_event(|tray, event| {
+                    use tauri::tray::TrayIconEvent;
+                    if let TrayIconEvent::Click { button, .. } = event {
+                        if button == tauri::tray::MouseButton::Left {
+                            let app_handle = tray.app_handle().clone();
+                            let _ = tray.app_handle().run_on_main_thread(move || {
+                                show_main_window(app_handle);
+                            });
+                        }
                     }
                 })
                 .build(app)?;
