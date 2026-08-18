@@ -1,16 +1,19 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "testtray",
+  "productName": "sooperutils",
   "version": "0.1.0",
-  "identifier": "com.darren.testtray",
+  "identifier": "com.darren.sooperutils",
   "build": {
-    "frontendDist": "../src"
+    "frontendDist": "../frontend/dist",
+    "devUrl": "http://localhost:5173",
+    "beforeDevCommand": "npm run dev --prefix ./frontend",
+    "beforeBuildCommand": "npm run build --prefix ./frontend"
   },
   "app": {
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "testtray",
+        "title": "sooperutils",
         "width": 800,
         "height": 600,
         "visible": false
