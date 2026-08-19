@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import KeysPanel from './KeysPanel.svelte';
+  import { getCurrentWindow, LogicalPosition, LogicalSize } from '@tauri-apps/api/window';
 
   type NavItem = {
     id: string;
@@ -48,13 +49,16 @@
     try {
       // @ts-ignore - Tauri API injected at runtime
       const state = await window.__TAURI__.core.invoke<WindowState>('load_window_state');
+      console.log('[WindowState] Loaded:', state);
       if (state.width && state.height) {
-        // @ts-ignore
-        const window = window.__TAURI__.window.getCurrent();
+        const tauriWindow = getCurrentWindow();
+        console.log('[WindowState] Window:', tauriWindow);
         if (state.x !== undefined && state.y !== undefined) {
-          await window.setPosition(state.x, state.y);
+          console.log('[WindowState] Setting position:', state.x, state.y);
+          await tauriWindow.setPosition(new LogicalPosition(state.x, state.y));
         }
-        await window.setSize(state.width, state.height);
+        console.log('[WindowState] Setting size:', state.width, state.height);
+        await tauriWindow.setSize(new LogicalSize(state.width, state.height));
       }
     } catch (err) {
       console.error('Failed to load window state:', err);
