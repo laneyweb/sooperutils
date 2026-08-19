@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import KeysPanel from './KeysPanel.svelte';
 
   type NavItem = {
     id: string;
@@ -8,12 +9,12 @@
   };
 
   const navItems: NavItem[] = [
-    { id: 'dashboard', label: 'Dashboard', icon: '📊' },
+    { id: 'keys', label: 'Keys', icon: '⌨️' },
     { id: 'settings', label: 'Settings', icon: '⚙️' },
     { id: 'about', label: 'About', icon: 'ℹ️' }
   ];
 
-  let activeNav = $state('dashboard');
+  let activeNav = $state('keys');
   let greeting = $state('');
   let nameInput = $state<HTMLInputElement>();
 
@@ -62,27 +63,8 @@
 
   <main class="main-content">
     <div class="content-wrapper">
-      {#if activeNav === 'dashboard'}
-        <div class="content-panel">
-          <h2>Dashboard</h2>
-          <p class="demo-text">Welcome to the Dashboard! This is the main overview panel.</p>
-          <div class="demo-card">
-            <h3>Quick Stats</h3>
-            <ul>
-              <li>Total Users: 1,234</li>
-              <li>Active Sessions: 56</li>
-              <li>Revenue: $12,345</li>
-            </ul>
-          </div>
-          <div class="demo-card">
-            <h3>Recent Activity</h3>
-            <ul>
-              <li>User "john_doe" signed up</li>
-              <li>Payment received: $99.00</li>
-              <li>New feature deployed</li>
-            </ul>
-          </div>
-        </div>
+      {#if activeNav === 'keys'}
+        <KeysPanel />
       {:else if activeNav === 'settings'}
         <div class="content-panel">
           <h2>Settings</h2>

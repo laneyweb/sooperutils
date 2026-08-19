@@ -22,8 +22,20 @@ tauri = { version = "2", features = ["tray-icon", "image-png"] }
 tauri-plugin-opener = "2"
 tauri-plugin-shell = "2"
 tauri-plugin-dialog = "2"
+tauri-plugin-store = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+rdev = "0.5"
+chrono = { version = "0.4", features = ["serde"] }
+parking_lot = "0.12"
+crossbeam-channel = "0.5"
+
+# Use a locally-patched rdev: the stock crate calls macOS Text Input Services
+# (TIS) APIs from its background event-tap thread to resolve key names, which
+# aborts the process (SIGTRAP / dispatch_assert_queue) on modern macOS.
+# See vendor/rdev/README note in src/macos/keyboard.rs.
+[patch.crates-io]
+rdev = { path = "vendor/rdev" }
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
