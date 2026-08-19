@@ -213,11 +213,53 @@
     {#if specificStats}
       <div class="specific-keys-section">
         <h3>Specific Key Counts</h3>
-        <div class="specific-keys-grid">
-          {@render SpecificKeyCard("Space", "␣", specificStats.space)}
-          {@render SpecificKeyCard("Backspace", "⌫", specificStats.backspace)}
-          {@render SpecificKeyCard("Enter", "↵", specificStats.enter)}
-          {@render SpecificKeyCard("Escape", "⎋", specificStats.escape)}
+        <div class="specific-keys-table-container">
+          <table class="specific-keys-table">
+            <thead>
+              <tr>
+                <th class="key-col">Key</th>
+                <th>Today</th>
+                <th>Week</th>
+                <th>Month</th>
+                <th>Year</th>
+                <th class="total-col">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="key-col"><span class="key-icon">␣</span><span class="key-name">Space</span></td>
+                <td>{formatNumber(specificStats.space.day)}</td>
+                <td>{formatNumber(specificStats.space.week)}</td>
+                <td>{formatNumber(specificStats.space.month)}</td>
+                <td>{formatNumber(specificStats.space.year)}</td>
+                <td class="total-col">{formatNumber(specificStats.space.total)}</td>
+              </tr>
+              <tr>
+                <td class="key-col"><span class="key-icon">⌫</span><span class="key-name">Backspace</span></td>
+                <td>{formatNumber(specificStats.backspace.day)}</td>
+                <td>{formatNumber(specificStats.backspace.week)}</td>
+                <td>{formatNumber(specificStats.backspace.month)}</td>
+                <td>{formatNumber(specificStats.backspace.year)}</td>
+                <td class="total-col">{formatNumber(specificStats.backspace.total)}</td>
+              </tr>
+              <tr>
+                <td class="key-col"><span class="key-icon">↵</span><span class="key-name">Enter</span></td>
+                <td>{formatNumber(specificStats.enter.day)}</td>
+                <td>{formatNumber(specificStats.enter.week)}</td>
+                <td>{formatNumber(specificStats.enter.month)}</td>
+                <td>{formatNumber(specificStats.enter.year)}</td>
+                <td class="total-col">{formatNumber(specificStats.enter.total)}</td>
+              </tr>
+              <tr>
+                <td class="key-col"><span class="key-icon">⎋</span><span class="key-name">Escape</span></td>
+                <td>{formatNumber(specificStats.escape.day)}</td>
+                <td>{formatNumber(specificStats.escape.week)}</td>
+                <td>{formatNumber(specificStats.escape.month)}</td>
+                <td>{formatNumber(specificStats.escape.year)}</td>
+                <td class="total-col">{formatNumber(specificStats.escape.total)}</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     {/if}
@@ -482,92 +524,81 @@
     color: var(--text-h);
   }
 
-  .specific-keys-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 1rem;
+  .specific-keys-table-container {
+    overflow-x: auto;
   }
 
-  .specific-key-card {
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 1rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
+  .specific-keys-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
   }
 
-  .specific-key-header {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding-bottom: 0.5rem;
+  .specific-keys-table th,
+  .specific-keys-table td {
+    padding: 0.75rem 1rem;
+    text-align: right;
     border-bottom: 1px solid var(--border);
   }
 
-  .specific-key-icon {
-    font-size: 1.5rem;
-    font-family: monospace;
-    color: var(--accent);
-  }
-
-  .specific-key-name {
-    font-size: 1rem;
+  .specific-keys-table th {
     font-weight: 600;
-    color: var(--text-h);
-  }
-
-  .specific-key-stats {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 0.5rem;
-  }
-
-  .specific-stat {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.25rem;
-    padding: 0.5rem;
-    background: var(--code-bg);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-  }
-
-  .specific-stat.total {
-    background: var(--accent-bg);
-    border-color: var(--accent-border);
-  }
-
-  .specific-stat-label {
-    font-size: 0.65rem;
     color: var(--text);
     opacity: 0.7;
     text-transform: uppercase;
     letter-spacing: 0.05em;
+    font-size: 0.7rem;
+    background: var(--bg);
+    position: sticky;
+    top: 0;
   }
 
-  .specific-stat-value {
-    font-size: 1.25rem;
+  .specific-keys-table th:first-child,
+  .specific-keys-table td:first-child {
+    text-align: left;
+  }
+
+  .specific-keys-table .key-col {
+    width: 140px;
+    white-space: nowrap;
+  }
+
+  .specific-keys-table .total-col {
     font-weight: 700;
-    color: var(--text-h);
-    font-family: monospace;
-  }
-
-  .specific-stat.total .specific-stat-value {
     color: var(--accent);
   }
 
-  @media (max-width: 800px) {
-    .specific-key-stats {
-      grid-template-columns: repeat(3, 1fr);
-    }
+  .specific-keys-table tbody tr:last-child td {
+    border-bottom: none;
   }
 
-  @media (max-width: 500px) {
-    .specific-key-stats {
-      grid-template-columns: repeat(2, 1fr);
+  .specific-keys-table tbody tr:hover td {
+    background: var(--bg);
+  }
+
+  .key-icon {
+    font-family: monospace;
+    font-size: 1.1rem;
+    color: var(--accent);
+    margin-right: 0.5rem;
+    display: inline-block;
+    width: 1.5em;
+    text-align: center;
+  }
+
+  .key-name {
+    font-weight: 500;
+    color: var(--text-h);
+  }
+
+  @media (max-width: 600px) {
+    .specific-keys-table th,
+    .specific-keys-table td {
+      padding: 0.5rem 0.75rem;
+      font-size: 0.85rem;
+    }
+    .specific-keys-table .key-col {
+      width: 120px;
     }
   }
 </style>
