@@ -51,6 +51,15 @@ fn macos_input_monitoring_granted() -> bool {
 
 const KEY_STORE_KEY: &str = "keypress_data";
 const STORE_PATH: &str = "store.bin";
+const WINDOW_STORE_KEY: &str = "window_state";
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+struct WindowState {
+    x: Option<f64>,
+    y: Option<f64>,
+    width: Option<f64>,
+    height: Option<f64>,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 struct KeyPressData {
@@ -447,6 +456,26 @@ fn open_permission_settings() {
     }
 }
 
+#[tauri::command]
+fn save_window_state(app: tauri::AppHandle, state: WindowState) {
+    if let Ok(store) = app.store(STORE_PATH) {
+        let _ = store.set(WINDOW_STORE_KEY, serde_json::to_value(state).unwrap());
+        let _ = store.save();
+    }
+}
+
+#[tauri::command]
+fn load_window_state(app: tauri::AppHandle) -> WindowState {
+    if let Ok(store) = app.store(STORE_PATH) {
+        if let Some(value) = store.get(WINDOW_STORE_KEY) {
+            if let Ok(state) = serde_json::from_value::<WindowState>(value) {
+                return state;
+            }
+        }
+    }
+    WindowState::default()
+}
+
 fn start_key_listener(app: AppHandle) {
     // Warn early if macOS permissions are missing. macOS silently drops
     // keyboard events for untrusted processes (rdev reports no error), so
@@ -584,11 +613,14 @@ pub fn run() {
             get_specific_key_stats,
             reset_keypress_data,
             get_keypress_debug,
-            open_permission_settings
+            open_permission_settings,
+            save_window_state,
+            load_window_state
         ])
         .setup(|app| {
             use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
             use tauri::tray::TrayIconBuilder;
+            use tauri::Manager;
 
             // Load data from store
             KEY_TRACKER.load_from_store(app.handle());
@@ -632,6 +664,20 @@ pub fn run() {
                         "quit" => {
                             // Save data before quitting
                             KEY_TRACKER.save_to_store(&app);
+                            // Save window state before quitting
+                            if let Some(window) = app.get_webview_window("main") {
+                                let _ = window.outer_position().and_then(|pos| {
+                                    window.inner_size().map(|size| {
+                                        let state = WindowState {
+                                            x: Some(pos.x as f64),
+                                            y: Some(pos.y as f64),
+                                            width: Some(size.width as f64),
+                                            height: Some(size.height as f64),
+                                        };
+                                        let _ = save_window_state(app.clone(), state);
+                                    })
+                                });
+                            }
                             app.exit(0);
                         }
                         _ => {}
@@ -653,11 +699,46 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
-            use tauri::WindowEvent;
-            if let WindowEvent::CloseRequested { api, .. } = event {
-                if window.label() == "main" {
-                    api.prevent_close();
-                    let _ = window.hide();
+            use tauri::{Manager, WindowEvent};
+            if window.label() == "main" {
+                match event {
+                    WindowEvent::CloseRequested { api, .. } => {
+                        api.prevent_close();
+                        let _ = window.hide();
+                        // Save window state on hide
+                        if let (Ok(pos), Ok(size)) = (window.outer_position(), window.inner_size()) {
+                            let state = WindowState {
+                                x: Some(pos.x as f64),
+                                y: Some(pos.y as f64),
+                                width: Some(size.width as f64),
+                                height: Some(size.height as f64),
+                            };
+                            let _ = save_window_state(window.app_handle().clone(), state);
+                        }
+                    }
+                    WindowEvent::Moved(pos) => {
+                        if let Ok(size) = window.inner_size() {
+                            let state = WindowState {
+                                x: Some(pos.x as f64),
+                                y: Some(pos.y as f64),
+                                width: Some(size.width as f64),
+                                height: Some(size.height as f64),
+                            };
+                            let _ = save_window_state(window.app_handle().clone(), state);
+                        }
+                    }
+                    WindowEvent::Resized(size) => {
+                        if let Ok(pos) = window.outer_position() {
+                            let state = WindowState {
+                                x: Some(pos.x as f64),
+                                y: Some(pos.y as f64),
+                                width: Some(size.width as f64),
+                                height: Some(size.height as f64),
+                            };
+                            let _ = save_window_state(window.app_handle().clone(), state);
+                        }
+                    }
+                    _ => {}
                 }
             }
         })

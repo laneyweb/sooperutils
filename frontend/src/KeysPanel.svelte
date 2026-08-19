@@ -184,35 +184,8 @@
     <p class="demo-text" style="color: var(--accent);">{error}</p>
     <button class="retry-btn" onclick={fetchStats}>Retry</button>
   {:else}
-    <div class="stats-grid">
-      <div class="stat-card">
-        <span class="stat-label">Today</span>
-        <span class="stat-value">{formatNumber(stats.day)}</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-label">This Week</span>
-        <span class="stat-value">{formatNumber(stats.week)}</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-label">This Month</span>
-        <span class="stat-value">{formatNumber(stats.month)}</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-label">This Year</span>
-        <span class="stat-value">{formatNumber(stats.year)}</span>
-      </div>
-      <div class="stat-card total">
-        <span class="stat-label">Total</span>
-        <span class="stat-value">{formatNumber(stats.total)}</span>
-      </div>
-    </div>
-    <div class="stats-info">
-      <p>Stats update automatically every 5 seconds. Data persists across app restarts.</p>
-    </div>
-
     {#if specificStats}
       <div class="specific-keys-section">
-        <h3>Specific Key Counts</h3>
         <div class="specific-keys-table-container">
           <table class="specific-keys-table">
             <thead>
@@ -226,6 +199,14 @@
               </tr>
             </thead>
             <tbody>
+              <tr class="all-keys-row">
+                <td class="key-col"><span class="key-name">All Keys</span></td>
+                <td>{formatNumber(stats.day)}</td>
+                <td>{formatNumber(stats.week)}</td>
+                <td>{formatNumber(stats.month)}</td>
+                <td>{formatNumber(stats.year)}</td>
+                <td class="total-col">{formatNumber(stats.total)}</td>
+              </tr>
               <tr>
                 <td class="key-col"><span class="key-icon">␣</span><span class="key-name">Space</span></td>
                 <td>{formatNumber(specificStats.space.day)}</td>
@@ -344,74 +325,6 @@
     color: var(--accent);
   }
 
-  .stats-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-  }
-
-  .stat-card {
-    background: var(--code-bg);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 1.5rem 1rem;
-    text-align: center;
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
-  }
-
-  .stat-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  }
-
-  .stat-card.total {
-    grid-column: 1 / -1;
-    max-width: 300px;
-    margin: 0 auto;
-    background: var(--accent-bg);
-    border-color: var(--accent-border);
-  }
-
-  .stat-label {
-    display: block;
-    font-size: 0.85rem;
-    color: var(--text);
-    opacity: 0.8;
-    margin-bottom: 0.5rem;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-
-  .stat-value {
-    display: block;
-    font-size: 2.5rem;
-    font-weight: 700;
-    color: var(--text-h);
-    line-height: 1.2;
-  }
-
-  .stat-card.total .stat-value {
-    color: var(--accent);
-    font-size: 3rem;
-  }
-
-  .stats-info {
-    padding: 1rem;
-    background: var(--code-bg);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    text-align: center;
-  }
-
-  .stats-info p {
-    margin: 0;
-    font-size: 0.85rem;
-    color: var(--text);
-    opacity: 0.7;
-  }
-
   .retry-btn {
     margin-top: 1rem;
     padding: 0.5rem 1rem;
@@ -510,18 +423,10 @@
   }
 
   .specific-keys-section {
-    margin-top: 2rem;
-    padding: 1.5rem;
+    padding: 1rem;
     background: var(--code-bg);
     border: 1px solid var(--border);
     border-radius: 12px;
-  }
-
-  .specific-keys-section h3 {
-    margin: 0 0 1rem;
-    font-size: 1rem;
-    font-weight: 600;
-    color: var(--text-h);
   }
 
   .specific-keys-table-container {
@@ -574,6 +479,19 @@
 
   .specific-keys-table tbody tr:hover td {
     background: var(--bg);
+  }
+
+  .specific-keys-table .all-keys-row {
+    font-weight: 600;
+    background: var(--accent-bg);
+  }
+
+  .specific-keys-table .all-keys-row td {
+    border-top: 2px solid var(--accent-border);
+  }
+
+  .specific-keys-table .all-keys-row:hover td {
+    background: var(--accent-bg);
   }
 
   .key-icon {

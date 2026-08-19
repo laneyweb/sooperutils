@@ -14,6 +14,13 @@
     { id: 'about', label: 'About', icon: 'ℹ️' }
   ];
 
+  interface WindowState {
+    x?: number;
+    y?: number;
+    width?: number;
+    height?: number;
+  }
+
   let activeNav = $state('keys');
   let greeting = $state('');
   let nameInput = $state<HTMLInputElement>();
@@ -35,6 +42,24 @@
     greet(nameInput.value);
     nameInput.value = '';
   }
+
+  // Load and apply window state on mount
+  onMount(async () => {
+    try {
+      // @ts-ignore - Tauri API injected at runtime
+      const state = await window.__TAURI__.core.invoke<WindowState>('load_window_state');
+      if (state.width && state.height) {
+        // @ts-ignore
+        const window = window.__TAURI__.window.getCurrent();
+        if (state.x !== undefined && state.y !== undefined) {
+          await window.setPosition(state.x, state.y);
+        }
+        await window.setSize(state.width, state.height);
+      }
+    } catch (err) {
+      console.error('Failed to load window state:', err);
+    }
+  });
 </script>
 
 <div class="app-layout">
