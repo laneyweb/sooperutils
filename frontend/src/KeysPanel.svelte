@@ -9,6 +9,21 @@
     total: number;
   }
 
+  interface SpecificKeyTimeframes {
+    day: number;
+    week: number;
+    month: number;
+    year: number;
+    total: number;
+  }
+
+  interface SpecificKeyStats {
+    space: SpecificKeyTimeframes;
+    backspace: SpecificKeyTimeframes;
+    enter: SpecificKeyTimeframes;
+    escape: SpecificKeyTimeframes;
+  }
+
   interface KeyDebugInfo {
     key_count: number;
     listener_started: boolean;
@@ -17,6 +32,10 @@
     channel_tx_exists: boolean;
     channel_rx_exists: boolean;
     timestamps_count: number;
+    space_count: number;
+    backspace_count: number;
+    enter_count: number;
+    escape_count: number;
     mac_permissions: {
       accessibility: boolean;
       input_monitoring: boolean;
@@ -25,6 +44,7 @@
   }
 
   let stats = $state<KeyPressStats>({ day: 0, week: 0, month: 0, year: 0, total: 0 });
+  let specificStats = $state<SpecificKeyStats | null>(null);
   let debug = $state<KeyDebugInfo | null>(null);
   let loading = $state(true);
   let error = $state<string | null>(null);
@@ -44,6 +64,17 @@
     }
   }
 
+  async function fetchSpecificKeyStats() {
+    try {
+      // @ts-ignore - Tauri API injected at runtime
+      const result = await window.__TAURI__.core.invoke<SpecificKeyStats>('get_specific_key_stats');
+      specificStats = result;
+    } catch (err) {
+      console.error('Failed to fetch specific key stats:', err);
+      specificStats = null;
+    }
+  }
+
   async function fetchDebug() {
     try {
       // @ts-ignore - Tauri API injected at runtime
@@ -58,10 +89,12 @@
   // Initial fetch
   onMount(() => {
     fetchStats();
+    fetchSpecificKeyStats();
     fetchDebug();
     // Refresh every 5 seconds
     const interval = setInterval(() => {
       fetchStats();
+      fetchSpecificKeyStats();
       fetchDebug();
     }, 5000);
     return () => clearInterval(interval);
@@ -93,6 +126,36 @@
 </script>
 
 <div class="content-panel">
+  {#snippet SpecificKeyCard(keyName: string, keyIcon: string, stats: SpecificKeyTimeframes)}
+    <div class="specific-key-card">
+      <div class="specific-key-header">
+        <span class="specific-key-icon">{keyIcon}</span>
+        <span class="specific-key-name">{keyName}</span>
+      </div>
+      <div class="specific-key-stats">
+        <div class="specific-stat">
+          <span class="specific-stat-label">Today</span>
+          <span class="specific-stat-value">{formatNumber(stats.day)}</span>
+        </div>
+        <div class="specific-stat">
+          <span class="specific-stat-label">Week</span>
+          <span class="specific-stat-value">{formatNumber(stats.week)}</span>
+        </div>
+        <div class="specific-stat">
+          <span class="specific-stat-label">Month</span>
+          <span class="specific-stat-value">{formatNumber(stats.month)}</span>
+        </div>
+        <div class="specific-stat">
+          <span class="specific-stat-label">Year</span>
+          <span class="specific-stat-value">{formatNumber(stats.year)}</span>
+        </div>
+        <div class="specific-stat total">
+          <span class="specific-stat-label">Total</span>
+          <span class="specific-stat-value">{formatNumber(stats.total)}</span>
+        </div>
+      </div>
+    </div>
+  {/snippet}
   <div class="panel-header">
     <h2>Key Press Statistics</h2>
     <button class="debug-toggle" onclick={() => showDebug = !showDebug}>
@@ -146,6 +209,18 @@
     <div class="stats-info">
       <p>Stats update automatically every 5 seconds. Data persists across app restarts.</p>
     </div>
+
+    {#if specificStats}
+      <div class="specific-keys-section">
+        <h3>Specific Key Counts</h3>
+        <div class="specific-keys-grid">
+          {@render SpecificKeyCard("Space", "␣", specificStats.space)}
+          {@render SpecificKeyCard("Backspace", "⌫", specificStats.backspace)}
+          {@render SpecificKeyCard("Enter", "↵", specificStats.enter)}
+          {@render SpecificKeyCard("Escape", "⎋", specificStats.escape)}
+        </div>
+      </div>
+    {/if}
   {/if}
 
   {#if showDebug && debug}
@@ -390,5 +465,109 @@
   .perm-hint {
     opacity: 0.75;
     font-size: 0.8rem !important;
+  }
+
+  .specific-keys-section {
+    margin-top: 2rem;
+    padding: 1.5rem;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+  }
+
+  .specific-keys-section h3 {
+    margin: 0 0 1rem;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-h);
+  }
+
+  .specific-keys-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1rem;
+  }
+
+  .specific-key-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .specific-key-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .specific-key-icon {
+    font-size: 1.5rem;
+    font-family: monospace;
+    color: var(--accent);
+  }
+
+  .specific-key-name {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-h);
+  }
+
+  .specific-key-stats {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 0.5rem;
+  }
+
+  .specific-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.5rem;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+
+  .specific-stat.total {
+    background: var(--accent-bg);
+    border-color: var(--accent-border);
+  }
+
+  .specific-stat-label {
+    font-size: 0.65rem;
+    color: var(--text);
+    opacity: 0.7;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .specific-stat-value {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-h);
+    font-family: monospace;
+  }
+
+  .specific-stat.total .specific-stat-value {
+    color: var(--accent);
+  }
+
+  @media (max-width: 800px) {
+    .specific-key-stats {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+
+  @media (max-width: 500px) {
+    .specific-key-stats {
+      grid-template-columns: repeat(2, 1fr);
+    }
   }
 </style>

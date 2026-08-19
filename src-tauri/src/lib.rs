@@ -55,11 +55,25 @@ const STORE_PATH: &str = "store.bin";
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 struct KeyPressData {
     timestamps: Vec<u64>, // Unix timestamps in milliseconds
+    // Specific key timestamps
+    space_timestamps: Vec<u64>,
+    backspace_timestamps: Vec<u64>,
+    enter_timestamps: Vec<u64>,
+    escape_timestamps: Vec<u64>,
 }
 
 impl KeyPressData {
     fn add_press(&mut self, timestamp: u64) {
         self.timestamps.push(timestamp);
+    }
+
+    fn add_specific_key(&mut self, key: SpecificKey, timestamp: u64) {
+        match key {
+            SpecificKey::Space => self.space_timestamps.push(timestamp),
+            SpecificKey::Backspace => self.backspace_timestamps.push(timestamp),
+            SpecificKey::Enter => self.enter_timestamps.push(timestamp),
+            SpecificKey::Escape => self.escape_timestamps.push(timestamp),
+        }
     }
 
     fn count_in_range(&self, start: u64, end: u64) -> u64 {
@@ -69,14 +83,89 @@ impl KeyPressData {
             .count() as u64
     }
 
+    fn count_specific_in_range(&self, key: SpecificKey, start: u64, end: u64) -> u64 {
+        let timestamps = match key {
+            SpecificKey::Space => &self.space_timestamps,
+            SpecificKey::Backspace => &self.backspace_timestamps,
+            SpecificKey::Enter => &self.enter_timestamps,
+            SpecificKey::Escape => &self.escape_timestamps,
+        };
+        timestamps
+            .iter()
+            .filter(|&&ts| ts >= start && ts <= end)
+            .count() as u64
+    }
+
     fn total(&self) -> u64 {
         self.timestamps.len() as u64
+    }
+
+    fn total_specific(&self, key: SpecificKey) -> u64 {
+        let timestamps = match key {
+            SpecificKey::Space => &self.space_timestamps,
+            SpecificKey::Backspace => &self.backspace_timestamps,
+            SpecificKey::Enter => &self.enter_timestamps,
+            SpecificKey::Escape => &self.escape_timestamps,
+        };
+        timestamps.len() as u64
     }
 
     // Clean up old data (older than 2 years)
     fn cleanup(&mut self) {
         let cutoff = current_timestamp_ms() - 2 * 365 * 24 * 60 * 60 * 1000;
         self.timestamps.retain(|&ts| ts > cutoff);
+        self.space_timestamps.retain(|&ts| ts > cutoff);
+        self.backspace_timestamps.retain(|&ts| ts > cutoff);
+        self.enter_timestamps.retain(|&ts| ts > cutoff);
+        self.escape_timestamps.retain(|&ts| ts > cutoff);
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SpecificKey {
+    Space,
+    Backspace,
+    Enter,
+    Escape,
+}
+
+impl SpecificKey {
+    fn from_rdev_key(key: rdev::Key) -> Option<Self> {
+        use rdev::Key;
+        match key {
+            Key::Space => Some(SpecificKey::Space),
+            Key::Backspace => Some(SpecificKey::Backspace),
+            Key::Return => Some(SpecificKey::Enter),
+            Key::Escape => Some(SpecificKey::Escape),
+            _ => None,
+        }
+    }
+
+    fn as_str(&self) -> &'static str {
+        match self {
+            SpecificKey::Space => "space",
+            SpecificKey::Backspace => "backspace",
+            SpecificKey::Enter => "enter",
+            SpecificKey::Escape => "escape",
+        }
+    }
+
+    fn display_name(&self) -> &'static str {
+        match self {
+            SpecificKey::Space => "Space",
+            SpecificKey::Backspace => "Backspace",
+            SpecificKey::Enter => "Enter",
+            SpecificKey::Escape => "Escape",
+        }
+    }
+
+    fn all() -> [SpecificKey; 4] {
+        [
+            SpecificKey::Space,
+            SpecificKey::Backspace,
+            SpecificKey::Enter,
+            SpecificKey::Escape,
+        ]
     }
 }
 
@@ -126,6 +215,35 @@ struct KeyPressStats {
     total: u64,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+struct SpecificKeyTimeframes {
+    day: u64,
+    week: u64,
+    month: u64,
+    year: u64,
+    total: u64,
+}
+
+impl SpecificKeyTimeframes {
+    fn new(data: &KeyPressData, key: SpecificKey, now: u64) -> Self {
+        Self {
+            day: data.count_specific_in_range(key, day_start_ts(), now),
+            week: data.count_specific_in_range(key, week_start_ts(), now),
+            month: data.count_specific_in_range(key, month_start_ts(), now),
+            year: data.count_specific_in_range(key, year_start_ts(), now),
+            total: data.total_specific(key),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct SpecificKeyStats {
+    space: SpecificKeyTimeframes,
+    backspace: SpecificKeyTimeframes,
+    enter: SpecificKeyTimeframes,
+    escape: SpecificKeyTimeframes,
+}
+
 struct KeyPressTracker {
     data: RwLock<KeyPressData>,
 }
@@ -159,6 +277,10 @@ impl KeyPressTracker {
         self.data.write().add_press(timestamp);
     }
 
+    fn record_specific_key(&self, key: SpecificKey, timestamp: u64) {
+        self.data.write().add_specific_key(key, timestamp);
+    }
+
     fn should_save(&self) -> bool {
         self.data.read().timestamps.len() % 100 == 0
     }
@@ -176,6 +298,18 @@ impl KeyPressTracker {
         }
     }
 
+    fn get_specific_key_stats(&self) -> SpecificKeyStats {
+        let data = self.data.read();
+        let now = current_timestamp_ms();
+        
+        SpecificKeyStats {
+            space: SpecificKeyTimeframes::new(&data, SpecificKey::Space, now),
+            backspace: SpecificKeyTimeframes::new(&data, SpecificKey::Backspace, now),
+            enter: SpecificKeyTimeframes::new(&data, SpecificKey::Enter, now),
+            escape: SpecificKeyTimeframes::new(&data, SpecificKey::Escape, now),
+        }
+    }
+
     fn cleanup_old_data(&self) {
         self.data.write().cleanup();
     }
@@ -184,8 +318,8 @@ impl KeyPressTracker {
 static KEY_TRACKER: LazyLock<Arc<KeyPressTracker>> = LazyLock::new(|| Arc::new(KeyPressTracker::new()));
 
 // Global channel for keypress events (crossbeam supports multi-producer, multi-consumer)
-static KEY_TX: LazyLock<StdRwLock<Option<Sender<u64>>>> = LazyLock::new(|| StdRwLock::new(None));
-static KEY_RX: LazyLock<StdRwLock<Option<Receiver<u64>>>> = LazyLock::new(|| StdRwLock::new(None));
+static KEY_TX: LazyLock<StdRwLock<Option<Sender<(u64, Option<SpecificKey>)>>>> = LazyLock::new(|| StdRwLock::new(None));
+static KEY_RX: LazyLock<StdRwLock<Option<Receiver<(u64, Option<SpecificKey>)>>>> = LazyLock::new(|| StdRwLock::new(None));
 
 // Debug counters
 static KEY_COUNT: AtomicU64 = AtomicU64::new(0);
@@ -234,6 +368,11 @@ fn get_keypress_stats() -> KeyPressStats {
 }
 
 #[tauri::command]
+fn get_specific_key_stats() -> SpecificKeyStats {
+    KEY_TRACKER.get_specific_key_stats()
+}
+
+#[tauri::command]
 fn reset_keypress_data(app: tauri::AppHandle) {
     *KEY_TRACKER.data.write() = KeyPressData::default();
     KEY_TRACKER.save_to_store(&app);
@@ -256,6 +395,10 @@ struct KeyDebugInfo {
     channel_tx_exists: bool,
     channel_rx_exists: bool,
     timestamps_count: usize,
+    space_count: usize,
+    backspace_count: usize,
+    enter_count: usize,
+    escape_count: usize,
     // None on non-macOS platforms
     mac_permissions: Option<MacPermissionStatus>,
 }
@@ -281,6 +424,10 @@ fn get_keypress_debug() -> KeyDebugInfo {
         channel_tx_exists: KEY_TX.read().unwrap().is_some(),
         channel_rx_exists: KEY_RX.read().unwrap().is_some(),
         timestamps_count: KEY_TRACKER.data.read().timestamps.len(),
+        space_count: KEY_TRACKER.data.read().space_timestamps.len(),
+        backspace_count: KEY_TRACKER.data.read().backspace_timestamps.len(),
+        enter_count: KEY_TRACKER.data.read().enter_timestamps.len(),
+        escape_count: KEY_TRACKER.data.read().escape_timestamps.len(),
         mac_permissions,
     }
 }
@@ -315,7 +462,7 @@ fn start_key_listener(app: AppHandle) {
     }
 
     // Create a channel for keypress events
-    let (tx, rx) = unbounded::<u64>();
+    let (tx, rx) = unbounded::<(u64, Option<SpecificKey>)>();
     
     *KEY_TX.write().unwrap() = Some(tx);
     *KEY_RX.write().unwrap() = Some(rx);
@@ -335,13 +482,14 @@ fn start_key_listener(app: AppHandle) {
                 // Log ALL events for debugging
                 eprintln!("[KeyListener] Event received: {:?}", event.event_type);
                 // Only process KeyPress events
-                if let EventType::KeyPress(_) = event.event_type {
-                    eprintln!("[KeyListener] KeyPress received");
+                if let EventType::KeyPress(key) = event.event_type {
+                    eprintln!("[KeyListener] KeyPress received: {:?}", key);
                     KEY_COUNT.fetch_add(1, Ordering::Relaxed);
                     let ts = current_timestamp_ms();
                     LAST_KEY_TIME.store(ts, Ordering::Relaxed);
+                    let specific_key = SpecificKey::from_rdev_key(key);
                     if let Some(tx) = KEY_TX.read().unwrap().as_ref() {
-                        let _ = tx.send(ts);
+                        let _ = tx.send((ts, specific_key));
                     }
                 }
             }));
@@ -379,18 +527,21 @@ fn start_key_listener(app: AppHandle) {
             // Check for keypresses every 100ms
             thread::sleep(Duration::from_millis(100));
             
-            let mut timestamps = Vec::new();
+            let mut events = Vec::new();
             if let Some(rx) = KEY_RX.read().unwrap().as_ref() {
-                while let Ok(ts) = rx.try_recv() {
-                    timestamps.push(ts);
+                while let Ok(event) = rx.try_recv() {
+                    events.push(event);
                 }
             }
             
-            if !timestamps.is_empty() {
+            if !events.is_empty() {
                 let app_for_save = app_clone.clone();
                 let _ = app_clone.run_on_main_thread(move || {
-                    for ts in timestamps {
+                    for (ts, specific_key) in events {
                         KEY_TRACKER.record_press(ts);
+                        if let Some(key) = specific_key {
+                            KEY_TRACKER.record_specific_key(key, ts);
+                        }
                     }
                     // Save periodically (every 100 presses)
                     if KEY_TRACKER.should_save() {
@@ -430,6 +581,7 @@ pub fn run() {
             show_main_window, 
             show_about_window,
             get_keypress_stats,
+            get_specific_key_stats,
             reset_keypress_data,
             get_keypress_debug,
             open_permission_settings
