@@ -1,7 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
   import KeysPanel from './KeysPanel.svelte';
-  import { getCurrentWindow, LogicalPosition, LogicalSize } from '@tauri-apps/api/window';
 
   type NavItem = {
     id: string;
@@ -14,13 +12,6 @@
     { id: 'settings', label: 'Settings', icon: '⚙️' },
     { id: 'about', label: 'About', icon: 'ℹ️' }
   ];
-
-  interface WindowState {
-    x?: number;
-    y?: number;
-    width?: number;
-    height?: number;
-  }
 
   let activeNav = $state('keys');
   let greeting = $state('');
@@ -44,26 +35,6 @@
     nameInput.value = '';
   }
 
-  // Load and apply window state on mount
-  onMount(async () => {
-    try {
-      // @ts-ignore - Tauri API injected at runtime
-      const state = await window.__TAURI__.core.invoke<WindowState>('load_window_state');
-      console.log('[WindowState] Loaded:', state);
-      if (state.width && state.height) {
-        const tauriWindow = getCurrentWindow();
-        console.log('[WindowState] Window:', tauriWindow);
-        if (state.x !== undefined && state.y !== undefined) {
-          console.log('[WindowState] Setting position:', state.x, state.y);
-          await tauriWindow.setPosition(new LogicalPosition(state.x, state.y));
-        }
-        console.log('[WindowState] Setting size:', state.width, state.height);
-        await tauriWindow.setSize(new LogicalSize(state.width, state.height));
-      }
-    } catch (err) {
-      console.error('Failed to load window state:', err);
-    }
-  });
 </script>
 
 <div class="app-layout">

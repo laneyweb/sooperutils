@@ -29,6 +29,7 @@ rdev = "0.5"
 chrono = { version = "0.4", features = ["serde"] }
 parking_lot = "0.12"
 crossbeam-channel = "0.5"
+tauri-plugin-window-state = "2.4.1"
 
 # Use a locally-patched rdev: the stock crate calls macOS Text Input Services
 # (TIS) APIs from its background event-tap thread to resolve key names, which
