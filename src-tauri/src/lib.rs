@@ -302,11 +302,6 @@ static LISTENER_ERROR: StdRwLock<Option<String>> = StdRwLock::new(None);
 static LAST_KEY_TIME: AtomicU64 = AtomicU64::new(0);
 
 #[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
-}
-
-#[tauri::command]
 fn show_main_window(app: tauri::AppHandle) {
     use tauri::Manager;
     if let Some(window) = app.get_webview_window("main") {
@@ -557,7 +552,6 @@ pub fn run() {
         // plugin never tracks the window and saves an empty {} state.
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .invoke_handler(tauri::generate_handler![
-            greet, 
             show_main_window, 
             show_about_window,
             get_keypress_stats,

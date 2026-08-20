@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { getVersion } from '@tauri-apps/api/app';
+  import { confirm } from '@tauri-apps/plugin-dialog';
   import KeysPanel from './KeysPanel.svelte';
 
   type NavItem = {
@@ -17,9 +18,9 @@
   ];
 
   let activeNav = $state('keys');
-  let greeting = $state('');
-  let nameInput = $state<HTMLInputElement>();
   let version = $state('');
+  let clearing = $state(false);
+  let clearStatus = $state<{ ok: boolean; text: string } | null>(null);
 
   onMount(() => {
     getVersion()
@@ -27,22 +28,38 @@
       .catch((err) => console.error('Failed to get app version:', err));
   });
 
-  async function greet(name: string) {
-    if (!name.trim()) return;
+  async function clearStats() {
+    clearStatus = null;
+    let confirmed: boolean;
+    try {
+      confirmed = await confirm(
+        'This will permanently delete all recorded keyboard statistics.',
+        {
+          title: 'Clear Keyboard Statistics',
+          kind: 'warning',
+          okLabel: 'Clear',
+          cancelLabel: 'Cancel'
+        }
+      );
+    } catch (err) {
+      console.error('Failed to show confirmation dialog:', err);
+      clearStatus = { ok: false, text: 'Failed to show confirmation dialog.' };
+      return;
+    }
+    if (!confirmed) return;
+
+    clearing = true;
+    clearStatus = null;
     try {
       // @ts-ignore - Tauri API injected at runtime
-      const result = await window.__TAURI__.core.invoke('greet', { name: name.trim() });
-      greeting = result;
+      await window.__TAURI__.core.invoke('reset_keypress_data');
+      clearStatus = { ok: true, text: 'Keyboard statistics cleared.' };
     } catch (err) {
-      console.error(err);
-      greeting = 'Error calling greet command';
+      console.error('Failed to clear keyboard statistics:', err);
+      clearStatus = { ok: false, text: 'Failed to clear keyboard statistics.' };
+    } finally {
+      clearing = false;
     }
-  }
-
-  function handleSubmit(e: Event) {
-    e.preventDefault();
-    greet(nameInput.value);
-    nameInput.value = '';
   }
 
 </script>
@@ -81,29 +98,18 @@
           <h2>Settings</h2>
           <p class="demo-text">Configure your application preferences here.</p>
           <div class="demo-card">
-            <h3>General Settings</h3>
-            <label>
-              <input type="checkbox" /> Enable notifications
-            </label>
-            <label>
-              <input type="checkbox" /> Auto-save changes
-            </label>
-            <label>
-              <input type="checkbox" /> Dark mode
-            </label>
-          </div>
-          <div class="demo-card">
-            <h3>Account</h3>
-            <form onsubmit={handleSubmit} class="settings-form">
-              <input
-                id="greet-input"
-                placeholder="Enter your name..."
-                bind:this={nameInput}
-              />
-              <button type="submit">Save Name</button>
-            </form>
-            {#if greeting}
-              <p class="greeting">{greeting}</p>
+            <h3>Keyboard Statistics</h3>
+            <p class="demo-text">
+              Permanently delete all recorded keypress data (day, week, month,
+              year, and per-key counts).
+            </p>
+            <button class="danger-btn" onclick={clearStats} disabled={clearing}>
+              {clearing ? 'Clearing…' : 'Clear Keyboard Statistics'}
+            </button>
+            {#if clearStatus}
+              <p class="clear-status {clearStatus.ok ? 'ok' : 'error'}">
+                {clearStatus.text}
+              </p>
             {/if}
           </div>
         </div>
@@ -310,44 +316,43 @@
     accent-color: var(--accent);
   }
 
-  .settings-form {
-    display: flex;
-    gap: 0.5rem;
-    margin-bottom: 1rem;
+  .demo-card input[type="checkbox"] {
+    margin-right: 0.5rem;
+    accent-color: var(--accent);
   }
 
-  .settings-form input {
-    flex: 1;
-    font-size: 1rem;
-    padding: 0.5rem 0.75rem;
+  .danger-btn {
+    font-size: 13px;
+    padding: 0.4rem 0.9rem;
     border-radius: 6px;
-    border: 1px solid var(--border);
-    background: var(--bg);
-    color: var(--text);
-    min-width: 200px;
-  }
-
-  .settings-form button {
-    font-size: 1rem;
-    padding: 0.5rem 1rem;
-    border-radius: 6px;
-    border: none;
-    background: var(--accent);
-    color: white;
+    border: 1px solid var(--error);
+    background: var(--error);
+    color: #fff;
     cursor: pointer;
     font-weight: 500;
-    transition: background 0.2s;
+    transition: opacity 0.15s ease;
   }
 
-  .settings-form button:hover {
-    background: var(--accent-border);
+  .danger-btn:hover {
+    opacity: 0.85;
   }
 
-  .greeting {
-    margin: 0.5rem 0 0;
-    font-size: 1rem;
-    color: var(--accent);
-    font-weight: 500;
+  .danger-btn:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+
+  .clear-status {
+    margin: 0.75rem 0 0;
+    font-size: 13px;
+  }
+
+  .clear-status.ok {
+    color: var(--text-secondary);
+  }
+
+  .clear-status.error {
+    color: var(--error);
   }
 
   .demo-card a {
