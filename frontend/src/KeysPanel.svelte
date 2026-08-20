@@ -181,7 +181,7 @@
   {#if loading}
     <p class="demo-text">Loading stats...</p>
   {:else if error}
-    <p class="demo-text" style="color: var(--accent);">{error}</p>
+    <p class="demo-text" style="color: var(--error);">{error}</p>
     <button class="retry-btn" onclick={fetchStats}>Retry</button>
   {:else}
     {#if specificStats}
@@ -374,8 +374,8 @@
   }
 
   .debug-item.error {
-    border-color: var(--accent);
-    background: rgba(170, 59, 255, 0.1);
+    border-color: var(--error);
+    background: var(--error-bg);
   }
 
   .debug-label {
@@ -394,20 +394,20 @@
   }
 
   .debug-item.error .debug-value {
-    color: var(--accent);
+    color: var(--error);
     word-break: break-word;
   }
 
   .perm-warning {
     margin-bottom: 1.5rem;
     padding: 1.25rem;
-    background: rgba(170, 59, 255, 0.08);
-    border: 1px solid var(--accent);
+    background: var(--error-bg);
+    border: 1px solid var(--error);
     border-radius: 12px;
   }
 
   .perm-warning strong {
-    color: var(--accent);
+    color: var(--error);
     font-size: 1rem;
   }
 

@@ -1,21 +1,31 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
+  import { getVersion } from '@tauri-apps/api/app';
   import KeysPanel from './KeysPanel.svelte';
 
   type NavItem = {
     id: string;
     label: string;
-    icon: string;
+    glyph: string;
+    color: string;
   };
 
   const navItems: NavItem[] = [
-    { id: 'keys', label: 'Keys', icon: '⌨️' },
-    { id: 'settings', label: 'Settings', icon: '⚙️' },
-    { id: 'about', label: 'About', icon: 'ℹ️' }
+    { id: 'keys', label: 'Keys', glyph: '⌨', color: '#007AFF' },
+    { id: 'settings', label: 'Settings', glyph: '⚙︎', color: '#8E8E93' },
+    { id: 'about', label: 'About', glyph: 'ℹ', color: '#5E5CE6' }
   ];
 
   let activeNav = $state('keys');
   let greeting = $state('');
   let nameInput = $state<HTMLInputElement>();
+  let version = $state('');
+
+  onMount(() => {
+    getVersion()
+      .then((v) => (version = v))
+      .catch((err) => console.error('Failed to get app version:', err));
+  });
 
   async function greet(name: string) {
     if (!name.trim()) return;
@@ -39,9 +49,8 @@
 
 <div class="app-layout">
   <nav class="sidebar" aria-label="Main navigation">
-    <div class="sidebar-header">
-      <h1 class="app-title">TestTray</h1>
-    </div>
+    <!-- Empty strip under the traffic lights; also lets the window be dragged -->
+    <div class="sidebar-drag" data-tauri-drag-region></div>
     <ul class="nav-list">
       {#each navItems as item}
         <li>
@@ -50,14 +59,16 @@
             onclick={() => activeNav = item.id}
             aria-current={activeNav === item.id ? 'page' : undefined}
           >
-            <span class="nav-icon">{item.icon}</span>
+            <span class="nav-tile" style="background: {item.color}">
+              <span class="nav-glyph">{item.glyph}</span>
+            </span>
             <span class="nav-label">{item.label}</span>
           </button>
         </li>
       {/each}
     </ul>
     <div class="sidebar-footer">
-      <p class="version">v1.0.0</p>
+      <p class="version">SooperUtils <span class="version-num">v{version}</span></p>
     </div>
   </nav>
 
@@ -102,8 +113,8 @@
           <p class="demo-text">Learn more about this application.</p>
           <div class="demo-card">
             <h3>App Info</h3>
-            <p><strong>Name:</strong> TestTray</p>
-            <p><strong>Version:</strong> 1.0.0</p>
+            <p><strong>Name:</strong> SooperUtils</p>
+            <p><strong>Version:</strong> {version || '…'}</p>
             <p><strong>Framework:</strong> Tauri 2.0 + Svelte 5 + Vite</p>
           </div>
           <div class="demo-card">
@@ -137,85 +148,94 @@
     overflow: hidden;
   }
 
+  /* macOS System Settings-style sidebar */
   .sidebar {
-    width: 240px;
-    min-width: 240px;
-    background: var(--code-bg);
-    border-right: 1px solid var(--border);
+    width: 224px;
+    min-width: 224px;
+    background: var(--sidebar-bg);
     display: flex;
     flex-direction: column;
     height: 100%;
+    -webkit-user-select: none;
+    user-select: none;
   }
 
-  .sidebar-header {
-    padding: 1.5rem;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .app-title {
-    margin: 0;
-    font-size: 1.25rem;
-    font-weight: 600;
-    color: var(--text-h);
+  /* Traffic-light clearance strip (overlay titlebar); drag handle for the window */
+  .sidebar-drag {
+    height: 50px;
+    flex-shrink: 0;
   }
 
   .nav-list {
     list-style: none;
-    padding: 1rem;
+    padding: 8px 10px;
     margin: 0;
     flex: 1;
+    overflow-y: auto;
   }
 
   .nav-item {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: 8px;
     width: 100%;
-    padding: 0.75rem 1rem;
+    height: 30px;
+    padding: 0 8px;
     border: none;
-    border-radius: 8px;
+    border-radius: 6px;
     background: transparent;
     color: var(--text);
-    font-size: 0.95rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.15s ease;
+    font-size: 13px;
+    cursor: default;
     text-align: left;
+    margin-bottom: 2px;
+    transition: background 0.1s ease;
   }
 
   .nav-item:hover {
-    background: var(--accent-bg);
-    color: var(--accent);
+    background: var(--selected-bg);
   }
 
   .nav-item.active {
     background: var(--accent);
-    color: white;
+    color: #fff;
   }
 
-  .nav-item.active:hover {
-    background: var(--accent-border);
-    color: white;
+  .nav-item.active .nav-glyph {
+    color: #fff;
   }
 
-  .nav-icon {
-    font-size: 1.1rem;
+  .nav-tile {
     width: 24px;
-    text-align: center;
+    height: 24px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     flex-shrink: 0;
+    color: #fff;
+  }
+
+  .nav-glyph {
+    font-size: 15px;
+    line-height: 1;
+  }
+
+  .nav-label {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .sidebar-footer {
-    padding: 1rem;
-    border-top: 1px solid var(--border);
+    padding: 8px 16px 12px;
   }
 
   .version {
     margin: 0;
-    font-size: 0.75rem;
-    color: var(--text);
-    opacity: 0.6;
-    text-align: center;
+    font-size: 11px;
+    color: var(--text-secondary);
   }
 
   .main-content {
@@ -340,36 +360,13 @@
   }
 
   @media (max-width: 768px) {
-    .app-layout {
-      flex-direction: column;
-    }
-
     .sidebar {
-      width: 100%;
-      min-width: 0;
-      border-right: none;
-      border-bottom: 1px solid var(--border);
+      width: 180px;
+      min-width: 180px;
     }
 
-    .nav-list {
-      display: flex;
-      overflow-x: auto;
-      padding: 0.5rem;
-      gap: 0.5rem;
-    }
-
-    .nav-item {
-      white-space: nowrap;
-      padding: 0.5rem 1rem;
-    }
-
-    .nav-label {
-      display: none;
-    }
-
-    .sidebar-header,
-    .sidebar-footer {
-      display: none;
+    .sidebar-drag {
+      height: 50px;
     }
 
     .content-wrapper {

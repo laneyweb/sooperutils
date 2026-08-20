@@ -10,7 +10,6 @@ use parking_lot::RwLock;
 use rdev::{Event, EventType, listen};
 use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
-use tauri::Manager;
 use tauri_plugin_store::StoreExt;
 
 // macOS privacy-permission checks (Accessibility / Input Monitoring).
@@ -142,32 +141,6 @@ impl SpecificKey {
         }
     }
 
-    fn as_str(&self) -> &'static str {
-        match self {
-            SpecificKey::Space => "space",
-            SpecificKey::Backspace => "backspace",
-            SpecificKey::Enter => "enter",
-            SpecificKey::Escape => "escape",
-        }
-    }
-
-    fn display_name(&self) -> &'static str {
-        match self {
-            SpecificKey::Space => "Space",
-            SpecificKey::Backspace => "Backspace",
-            SpecificKey::Enter => "Enter",
-            SpecificKey::Escape => "Escape",
-        }
-    }
-
-    fn all() -> [SpecificKey; 4] {
-        [
-            SpecificKey::Space,
-            SpecificKey::Backspace,
-            SpecificKey::Enter,
-            SpecificKey::Escape,
-        ]
-    }
 }
 
 fn current_timestamp_ms() -> u64 {
@@ -596,7 +569,6 @@ pub fn run() {
         .setup(|app| {
             use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
             use tauri::tray::TrayIconBuilder;
-            use tauri::Manager;
 
             // Load data from store
             KEY_TRACKER.load_from_store(app.handle());
@@ -666,7 +638,7 @@ pub fn run() {
             // instead of quitting. Position/size persistence is NOT handled
             // here — tauri-plugin-window-state saves it on app exit and
             // restores it on launch.
-            use tauri::{Manager, WindowEvent};
+            use tauri::WindowEvent;
             if window.label() == "main" {
                 if let WindowEvent::CloseRequested { api, .. } = event {
                     api.prevent_close();
