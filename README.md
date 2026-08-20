@@ -7,6 +7,7 @@ A system tray utility application built with **Tauri 2.0**, **Rust**, and **Svel
 - System tray integration (left-click toggles the main window, right-click opens the menu)
 - **Global keypress counting** — tracks day / week / month / year / total keypresses
 - Data persisted locally across restarts (`tauri-plugin-store`)
+- **Window position & size remembered across restarts** (`tauri-plugin-window-state`)
 - Live debug panel (listener status, event counts, macOS permission state)
 - About window
 
@@ -43,7 +44,7 @@ tccutil reset ListenEvent com.darren.sooperutils
 
 | Layer    | Technology                         |
 | -------- | ---------------------------------- |
-| Backend  | Rust, Tauri 2, `rdev`, `tauri-plugin-store` |
+| Backend  | Rust, Tauri 2, `rdev`, `tauri-plugin-store`, `tauri-plugin-window-state` |
 | Frontend | Svelte 5, TypeScript, Vite         |
 
 ### Vendored `rdev`

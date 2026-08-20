@@ -577,6 +577,12 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_store::Builder::new().build())
+        // Window-state must be registered via Builder::plugin (NOT in .setup()).
+        // Plugins registered in .setup() miss config-defined windows: window
+        // creation dispatches the plugin's on_window_ready synchronously on the
+        // main thread during setup, BEFORE the .setup() closure runs, so the
+        // plugin never tracks the window and saves an empty {} state.
+        .plugin(tauri_plugin_window_state::Builder::default().build())
         .invoke_handler(tauri::generate_handler![
             greet, 
             show_main_window, 
@@ -591,12 +597,6 @@ pub fn run() {
             use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
             use tauri::tray::TrayIconBuilder;
             use tauri::Manager;
-
-            // Register the official window-state plugin (desktop only). It
-            // restores the main window's position/size on launch and saves
-            // them automatically on app exit — no custom listeners needed.
-            #[cfg(desktop)]
-            app.handle().plugin(tauri_plugin_window_state::Builder::default().build())?;
 
             // Load data from store
             KEY_TRACKER.load_from_store(app.handle());
