@@ -51,6 +51,7 @@ fn macos_input_monitoring_granted() -> bool {
 
 const KEY_STORE_KEY: &str = "keypress_data";
 const STORE_PATH: &str = "store.bin";
+const DOCK_ICON_VISIBLE_KEY: &str = "settings_dock_icon_visible";
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 struct KeyPressData {
@@ -311,27 +312,6 @@ fn show_main_window(app: tauri::AppHandle) {
 }
 
 #[tauri::command]
-fn show_about_window(app: tauri::AppHandle) {
-    use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
-    
-    if app.get_webview_window("about").is_some() {
-        return;
-    }
-    
-    let _ = WebviewWindowBuilder::new(
-        &app,
-        "about",
-        WebviewUrl::App("about.html".into())
-    )
-    .title("About")
-    .inner_size(400.0, 300.0)
-    .resizable(false)
-    .maximizable(false)
-    .minimizable(false)
-    .build();
-}
-
-#[tauri::command]
 fn get_keypress_stats() -> KeyPressStats {
     KEY_TRACKER.get_stats()
 }
@@ -399,6 +379,52 @@ fn get_keypress_debug() -> KeyDebugInfo {
         escape_count: KEY_TRACKER.data.read().escape_timestamps.len(),
         mac_permissions,
     }
+}
+
+// Dock icon visibility (macOS). Hiding the icon switches the app to the
+// .Accessory activation policy so it lives only in the menu-bar tray.
+fn load_dock_icon_visible(app: &AppHandle) -> bool {
+    app.store(STORE_PATH)
+        .ok()
+        .and_then(|store| store.get(DOCK_ICON_VISIBLE_KEY))
+        .and_then(|value| value.as_bool())
+        .unwrap_or(true)
+}
+
+fn apply_dock_icon(app: &AppHandle, visible: bool) {
+    #[cfg(target_os = "macos")]
+    {
+        let policy = if visible {
+            tauri::ActivationPolicy::Regular
+        } else {
+            tauri::ActivationPolicy::Accessory
+        };
+        if let Err(err) = app.set_activation_policy(policy) {
+            eprintln!("[DockIcon] Failed to set activation policy: {err}");
+        }
+    }
+}
+
+#[tauri::command]
+fn get_dock_icon_visible(app: AppHandle) -> bool {
+    load_dock_icon_visible(&app)
+}
+
+#[tauri::command]
+fn set_dock_icon_visible(app: AppHandle, visible: bool) -> Result<(), String> {
+    apply_dock_icon(&app, visible);
+    // Switching to the Accessory policy can hide the app's windows on
+    // macOS. Make sure the main window stays visible either way.
+    if !visible {
+        use tauri::Manager;
+        if let Some(window) = app.get_webview_window("main") {
+            let _ = window.show();
+        }
+    }
+    let store = app.store(STORE_PATH).map_err(|e| e.to_string())?;
+    store.set(DOCK_ICON_VISIBLE_KEY, serde_json::json!(visible));
+    store.save().map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 // Opens the macOS Privacy & Security settings panes where the user can
@@ -553,12 +579,13 @@ pub fn run() {
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .invoke_handler(tauri::generate_handler![
             show_main_window, 
-            show_about_window,
             get_keypress_stats,
             get_specific_key_stats,
             reset_keypress_data,
             get_keypress_debug,
-            open_permission_settings
+            open_permission_settings,
+            get_dock_icon_visible,
+            set_dock_icon_visible
         ])
         .setup(|app| {
             use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
@@ -566,18 +593,22 @@ pub fn run() {
 
             // Load data from store
             KEY_TRACKER.load_from_store(app.handle());
+
+            // Apply the saved dock-icon preference before the window shows.
+            if !load_dock_icon_visible(app.handle()) {
+                apply_dock_icon(app.handle(), false);
+            }
             
             // Start global key listener
             start_key_listener(app.handle().clone());
 
             // Create menu items
             let show_main = MenuItem::with_id(app, "show_main", "Open Main Window", true, None::<&str>)?;
-            let about = MenuItem::with_id(app, "about", "About", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
             let separator = PredefinedMenuItem::separator(app)?;
 
             // Create the menu
-            let menu = Menu::with_items(app, &[&show_main, &separator, &about, &separator, &quit])?;
+            let menu = Menu::with_items(app, &[&show_main, &separator, &quit])?;
 
             // Load custom tray icon
             let icon_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("icons/traytest.png");
@@ -595,12 +626,6 @@ pub fn run() {
                             let app_handle = app.clone();
                             let _ = app.run_on_main_thread(move || {
                                 show_main_window(app_handle);
-                            });
-                        }
-                        "about" => {
-                            let app_handle = app.clone();
-                            let _ = app.run_on_main_thread(move || {
-                                show_about_window(app_handle);
                             });
                         }
                         "quit" => {

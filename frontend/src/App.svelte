@@ -21,12 +21,32 @@
   let version = $state('');
   let clearing = $state(false);
   let clearStatus = $state<{ ok: boolean; text: string } | null>(null);
+  let dockVisible = $state(true);
 
   onMount(() => {
     getVersion()
       .then((v) => (version = v))
       .catch((err) => console.error('Failed to get app version:', err));
+    // @ts-ignore - Tauri API injected at runtime
+    window.__TAURI__.core
+      .invoke<boolean>('get_dock_icon_visible')
+      .then((v) => (dockVisible = v))
+      .catch((err) => console.error('Failed to get dock icon visibility:', err));
   });
+
+  async function toggleDockIcon() {
+    const target = !dockVisible;
+    dockVisible = target; // optimistic update
+    try {
+      // @ts-ignore - Tauri API injected at runtime
+      await window.__TAURI__.core.invoke('set_dock_icon_visible', {
+        visible: target
+      });
+    } catch (err) {
+      console.error('Failed to set dock icon visibility:', err);
+      dockVisible = !target; // revert on failure
+    }
+  }
 
   async function clearStats() {
     clearStatus = null;
@@ -65,9 +85,11 @@
 </script>
 
 <div class="app-layout">
+  <!-- Overlay titlebar: full-width drag region so the window can be moved -->
+  <div class="window-drag" data-tauri-drag-region></div>
   <nav class="sidebar" aria-label="Main navigation">
-    <!-- Empty strip under the traffic lights; also lets the window be dragged -->
-    <div class="sidebar-drag" data-tauri-drag-region></div>
+    <!-- Traffic-light clearance strip inside the sidebar -->
+    <div class="sidebar-drag"></div>
     <ul class="nav-list">
       {#each navItems as item}
         <li>
@@ -97,6 +119,21 @@
         <div class="content-panel">
           <h2>Settings</h2>
           <p class="demo-text">Configure your application preferences here.</p>
+          <div class="demo-card">
+            <h3>Dock</h3>
+            <p class="demo-text">
+              Show or hide the SooperUtils icon in the Dock. The app stays
+              available in the menu-bar tray either way.
+            </p>
+            <label>
+              <input
+                type="checkbox"
+                checked={dockVisible}
+                onchange={toggleDockIcon}
+              />
+              Show Dock icon
+            </label>
+          </div>
           <div class="demo-card">
             <h3>Keyboard Statistics</h3>
             <p class="demo-text">
@@ -166,7 +203,19 @@
     user-select: none;
   }
 
-  /* Traffic-light clearance strip (overlay titlebar); drag handle for the window */
+  /* Overlay titlebar: full-width drag region so the window can be moved */
+  .window-drag {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 40px;
+    z-index: 10;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* Traffic-light clearance strip inside the sidebar */
   .sidebar-drag {
     height: 50px;
     flex-shrink: 0;
@@ -368,10 +417,6 @@
     .sidebar {
       width: 180px;
       min-width: 180px;
-    }
-
-    .sidebar-drag {
-      height: 50px;
     }
 
     .content-wrapper {
